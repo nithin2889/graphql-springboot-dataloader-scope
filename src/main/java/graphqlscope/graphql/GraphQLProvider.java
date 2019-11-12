@@ -31,61 +31,62 @@ import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 @Component
 public class GraphQLProvider {
 
-    private final GraphQLDataFetchers graphQLDataFetchers;
+  private final GraphQLDataFetchers graphQLDataFetchers;
 
-    private GraphQL graphQL;
+  private GraphQL graphQL;
 
-    public GraphQLProvider(GraphQLDataFetchers graphQLDataFetchers) {
-        this.graphQLDataFetchers = graphQLDataFetchers;
-    }
+  public GraphQLProvider(GraphQLDataFetchers graphQLDataFetchers) {
+    this.graphQLDataFetchers = graphQLDataFetchers;
+  }
 
-    @Bean
-    public GraphQL graphQL() {
-        return graphQL;
-    }
+  @Bean
+  public GraphQL graphQL() {
+    return graphQL;
+  }
 
-    @Bean
-    @Scope(value = WebApplicationContext.SCOPE_APPLICATION, proxyMode = ScopedProxyMode.TARGET_CLASS)
-    @Profile("global")
-    public DataLoaderRegistry globalDataLoaderRegistry(
+  @Bean
+  @Scope(value = WebApplicationContext.SCOPE_APPLICATION, proxyMode = ScopedProxyMode.TARGET_CLASS)
+  @Profile("global")
+  public DataLoaderRegistry globalDataLoaderRegistry(
       @Value("${cache.maxCacheSize}") long maxCacheSize,
       @Value("${cache.expiryInSeconds}") long expiryInSeconds
-    ) {
-        DataLoaderRegistry dataLoaderRegistry = new DataLoaderRegistry();
+  ) {
+    DataLoaderRegistry dataLoaderRegistry = new DataLoaderRegistry();
 
-        CacheMap customCache = new CustomGuavaBasedCache(maxCacheSize, expiryInSeconds);
-        DataLoaderOptions options = DataLoaderOptions.newOptions().setCacheMap(customCache);
+    CacheMap customCache = new CustomGuavaBasedCache(maxCacheSize, expiryInSeconds);
+    DataLoaderOptions options = DataLoaderOptions.newOptions().setCacheMap(customCache);
 
-        DataLoader<String, CountryTO> countryLoader = DataLoader.newDataLoader(graphQLDataFetchers.countryBatchLoader(), options);
-        dataLoaderRegistry.register("countries", countryLoader);
-        return dataLoaderRegistry;
-    }
+    DataLoader<String, CountryTO> countryLoader = DataLoader
+        .newDataLoader(graphQLDataFetchers.countryBatchLoader(), options);
+    dataLoaderRegistry.register("countries", countryLoader);
+    return dataLoaderRegistry;
+  }
 
-    @PostConstruct
-    public void init() throws IOException {
-        URL url = Resources.getResource("schema.graphqls");
-        String sdl = Resources.toString(url, Charsets.UTF_8);
-        GraphQLSchema graphQLSchema = buildSchema(sdl);
-        this.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
-    }
+  @PostConstruct
+  public void init() throws IOException {
+    URL url = Resources.getResource("schema.graphqls");
+    String sdl = Resources.toString(url, Charsets.UTF_8);
+    GraphQLSchema graphQLSchema = buildSchema(sdl);
+    this.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+  }
 
-    private GraphQLSchema buildSchema(String sdl) {
-        TypeDefinitionRegistry typeRegistry = new SchemaParser().parse(sdl);
-        RuntimeWiring runtimeWiring = buildWiring();
-        SchemaGenerator schemaGenerator = new SchemaGenerator();
-        return schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
-    }
+  private GraphQLSchema buildSchema(String sdl) {
+    TypeDefinitionRegistry typeRegistry = new SchemaParser().parse(sdl);
+    RuntimeWiring runtimeWiring = buildWiring();
+    SchemaGenerator schemaGenerator = new SchemaGenerator();
+    return schemaGenerator.makeExecutableSchema(typeRegistry, runtimeWiring);
+  }
 
-    private RuntimeWiring buildWiring() {
-        return RuntimeWiring.newRuntimeWiring()
-          .type(newTypeWiring("Query")
+  private RuntimeWiring buildWiring() {
+    return RuntimeWiring.newRuntimeWiring()
+        .type(newTypeWiring("Query")
             .dataFetcher("animals", graphQLDataFetchers.animalsFetcher())
-          )
-          .type(newTypeWiring("Animal")
+        )
+        .type(newTypeWiring("Animal")
             .dataFetcher("countries", graphQLDataFetchers.animalCountriesFetcher())
-          )
-          .build();
-    }
+        )
+        .build();
+  }
 
 
 }
